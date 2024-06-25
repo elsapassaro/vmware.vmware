@@ -7,3 +7,5 @@ vm_datacenter: DC0
 vm_folder: test
 run_on_simulator: true
 vm: DC0_H0_VM0
+template_folder: "{{ vm_folder }}"
+template_name: test-template

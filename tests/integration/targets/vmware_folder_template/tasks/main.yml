@@ -11,7 +11,6 @@
         folder_name: "{{ template_folder }}"
         folder_type: vm
         state: present
-      when: run_on_simulator
 
     - name: "Test setup: Create VM guest {{ vm }}"
       community.vmware.vmware_guest:
@@ -22,7 +21,7 @@
         cluster: "{{ vm_cluster }}"
         port: "{{ vcenter_port }}"
         datacenter: "{{ vm_datacenter }}"
-        folder: "{{ template_folder }}"
+        folder: "{{ vm_folder }}"
         state: present
         name: "{{ vm }}"
         disk: "{{ vm_disk }}"
@@ -54,7 +53,27 @@
         port: "{{ vcenter_port }}"
         folder: "{{ template_folder }}"
         vm_name: "{{ vm }}"
+        name: "{{ template_name }}"
       register: __res
+
+    - name: Get info on template
+      community.vmware.vmware_guest_info:
+        validate_certs: false
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder: "{{ template_folder }}"
+        port: "{{ vcenter_port }}"
+        name: "{{ template_name }}"
+      register: template_info
+
+    - name: Check template
+      ansible.builtin.assert:
+        that:
+          - template_info.instance.hw_folder == "/" + vm_datacenter + "/vm/" + template_folder
+          - template_info.instance.hw_is_template == true
+          - template_info.instance.hw_name == template_name
 
   always:
     - name: "Test teardown: Destroy VM guest {{ vm }}"
@@ -71,7 +90,8 @@
         force: true
         name: "{{ vm }}"
       when: not run_on_simulator
-    - name: "Test teardown: Destroy VM template {{ vm }}"
+
+    - name: "Test teardown: Destroy VM template {{ template_name }}"
       community.vmware.vmware_guest:
         validate_certs: false
         hostname: "{{ vcenter_hostname }}"
@@ -80,8 +100,20 @@
         cluster: "{{ vm_cluster }}"
         port: "{{ vcenter_port }}"
         datacenter: "{{ vm_datacenter }}"
-        folder: "{{ vm_folder }}"
+        folder: "{{ template_folder }}"
         state: absent
         force: true
-        name: "{{ vm }}_template"
+        name: "{{ template_name }}"
+      when: not run_on_simulator
+
+    - name: "Test teardown: Delete Folder {{ template_folder }}"
+      community.vmware.vcenter_folder:
+        validate_certs: false
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        port: "{{ vcenter_port }}"
+        datacenter: "{{ vm_datacenter }}"
+        folder_name: "{{ template_folder }}"
+        state: absent
       when: not run_on_simulator
